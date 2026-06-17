@@ -773,7 +773,7 @@ docker run -d --name vllm-server \\
 
 
 @mcp.tool()
-async def start_ec2(
+async def start_azure_vm(
     service_name: str = DEFAULT_SERVICE_NAME,
     model_path: str = "google/gemma-4-12B-it-qat-w4a16-ct",
     key_name: str = "unused",
@@ -854,7 +854,7 @@ async def destroy_vllm(service_name: str = DEFAULT_SERVICE_NAME) -> str:
 
 
 @mcp.tool()
-def stop_ec2(
+def stop_azure_vm(
     service_name: Optional[str] = None,
     instance_id: Optional[str] = None,
 ) -> str:
@@ -921,7 +921,7 @@ def status_vllm(service_name: str = DEFAULT_SERVICE_NAME) -> str:
 
 
 @mcp.tool()
-def status_ec2(
+def status_azure_vm(
     service_name: Optional[str] = None,
     instance_id: Optional[str] = None,
 ) -> str:
@@ -1791,7 +1791,7 @@ async def run_benchmark(
     return summary_str
 
 
-async def fetch_ec2_logs(instance_id: str, limit: int = 50) -> str:
+async def fetch_azure_vm_logs(instance_id: str, limit: int = 50) -> str:
     """Fetches docker logs from the running Azure VM via VM Run Command."""
     # instance_id behaves as service_name here to map to correct RG/VM
     rg_name = f"{instance_id}-rg"
@@ -1837,7 +1837,7 @@ async def analyze_gpu_logs(limit: int = 15, service_name: str = DEFAULT_SERVICE_
         process = await asyncio.to_thread(subprocess.run, cmd, capture_output=True, text=True, timeout=15)
         if process.returncode == 0 and "running" in process.stdout.strip().lower():
             logger.info(f"Fetching Azure VM logs for VM {vm_name} in group {rg_name}...")
-            raw_logs = await fetch_ec2_logs(service_name, limit)
+            raw_logs = await fetch_azure_vm_logs(service_name, limit)
             # Prepare prompt for Gemma
             prompt = f"Analyze the following vLLM docker container logs and provide a high-level summary of critical issues:\n\n{raw_logs}\n\nSummary:"
             client = await get_vllm_client()
@@ -1888,15 +1888,15 @@ async def get_help() -> str:
         "### 🧰 Available MCP Tools\n\n"
         "Below is a summary of the tools exposed by this SRE/DevOps agent:\n\n"
         "#### 🐳 Infrastructure & Deployment\n"
-        "- **`start_ec2`**: Starts an existing stopped Azure VM, or provisions a new one (with NVIDIA A10 GPU) if none exists.\n"
-        "- **`status_ec2`**: Checks the state, size, and public IP details of Azure VMs.\n"
-        "- **`stop_ec2`**: Safely deallocates active Azure VMs to halt billing.\n"
+        "- **`start_azure_vm`**: Starts an existing stopped Azure VM, or provisions a new one (with NVIDIA A10 GPU) if none exists.\n"
+        "- **`status_azure_vm`**: Checks the state, size, and public IP details of Azure VMs.\n"
+        "- **`stop_azure_vm`**: Safely deallocates active Azure VMs to halt billing.\n"
         "- **`check_vllm`**: Checks the status of the vLLM container and engine running on the Azure VM.\n"
-        "- **`deploy_vllm`**: Deploys vLLM to Azure VM Standard_NV36ads_A10_v5 (Azure Linux 4.0).\n"
+        "- **`deploy_vllm`**: Deploys vLLM to Azure VM Standard_NV36ads_A10_v5 (Ubuntu 22.04 LTS).\n"
         "- **`destroy_vllm`**: Cleans up the vLLM Docker container on the Azure VM without deleting it.\n"
         "- **`status_vllm`**: Checks the status of the Azure VM or Cloud Run vLLM service.\n"
         "- **`update_vllm_scaling`**: Scales Azure VM sizes vertically.\n"
-        "- **`get_vllm_deployment_config`**: Generates the Azure VM deployment command and user data (Azure Linux 4.0).\n"
+        "- **`get_vllm_deployment_config`**: Generates the Azure VM deployment command and user data (Ubuntu 22.04 LTS).\n"
         "- **`get_vllm_gpu_deployment_config`**: Generates a GKE deployment manifest for GPU (NVIDIA L4).\n"
         "- **`get_vllm_endpoint`**: Returns the current active vLLM endpoint URL.\n"
         "- **`check_gpu_quotas`**: Checks GPU VM core family quotas for an Azure region.\n\n"

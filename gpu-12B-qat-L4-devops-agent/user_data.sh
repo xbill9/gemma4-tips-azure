@@ -2,13 +2,29 @@
 exec > >(tee -a /var/log/custom-data.log) 2>&1
 echo "=== Starting Startup Script ==="
 
-# Wait for docker service to be active
-until systemctl is-active --quiet docker; do
-  echo "Waiting for Docker..."
-  sleep 2
-done
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -y
+apt-get install -y curl wget apt-transport-https ca-certificates gnupg lsb-release
 
-# Start the vLLM container
+# Install Docker
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+apt-get update -y
+apt-get install -y docker-ce docker-ce-cli containerd.io
+systemctl start docker
+systemctl enable docker
+
+# Install NVIDIA Container Toolkit
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+  sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+  tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+apt-get update -y
+apt-get install -y nvidia-container-toolkit
+nvidia-ctk runtime configure --runtime=docker
+systemctl restart docker
+
+# Start vLLM container
 docker run -d --name vllm-server \
   --gpus all \
   --ipc=host \
