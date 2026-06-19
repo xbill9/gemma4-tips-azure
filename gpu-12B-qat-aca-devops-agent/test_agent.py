@@ -100,9 +100,7 @@ class TestDevOpsAgent(unittest.IsolatedAsyncioTestCase):
             model_path="google/gemma-4-12B-it-qat-w4a16-ct",
         )
 
-        self.assertIn(
-            "Successfully deployed vLLM to Azure Container Apps (ACA) for service 'test-service'", result
-        )
+        self.assertIn("Successfully deployed vLLM to Azure Container Apps (ACA) for service 'test-service'", result)
         self.assertIn("FQDN: `https://test-service.eastus.azurecontainerapps.io`", result)
         self.assertEqual(mock_run.call_count, 5)
 
@@ -129,9 +127,7 @@ class TestDevOpsAgent(unittest.IsolatedAsyncioTestCase):
 
         result = await destroy_vllm(service_name="test-service")
 
-        self.assertIn(
-            "Successfully deleted Azure Container App 'test-service-app'", result
-        )
+        self.assertIn("Successfully deleted Azure Container App 'test-service-app'", result)
         self.assertEqual(mock_run.call_count, 2)
         cmd_args = mock_run.call_args_list[1][0][0]
         self.assertIn("containerapp", cmd_args)
@@ -144,17 +140,15 @@ class TestDevOpsAgent(unittest.IsolatedAsyncioTestCase):
 
         mock_res = MagicMock()
         mock_res.returncode = 0
-        mock_res.stdout = json.dumps({
-            "properties": {
-                "provisioningState": "Succeeded",
-                "runningStatus": "Running",
-                "configuration": {
-                    "ingress": {
-                        "fqdn": "test-service.eastus.azurecontainerapps.io"
-                    }
+        mock_res.stdout = json.dumps(
+            {
+                "properties": {
+                    "provisioningState": "Succeeded",
+                    "runningStatus": "Running",
+                    "configuration": {"ingress": {"fqdn": "test-service.eastus.azurecontainerapps.io"}},
                 }
             }
-        })
+        )
         mock_run.return_value = mock_res
 
         result = status_vllm(service_name="test-service")

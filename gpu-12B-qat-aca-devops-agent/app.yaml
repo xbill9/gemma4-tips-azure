@@ -1,0 +1,102 @@
+id: /subscriptions/3db3ce66-50b6-4d11-91ef-5950cf4039ed/resourceGroups/mcp-rg-eastus/providers/Microsoft.App/containerapps/gemma4-vllm-gpu
+identity:
+  type: None
+location: East US
+name: gemma4-vllm-gpu
+properties:
+  configuration:
+    activeRevisionsMode: Single
+    dapr: null
+    identitySettings: []
+    ingress:
+      additionalPortMappings: null
+      allowInsecure: false
+      clientCertificateMode: null
+      corsPolicy: null
+      customDomains: null
+      exposedPort: 0
+      external: true
+      fqdn: gemma4-vllm-gpu.niceriver-0b57da37.eastus.azurecontainerapps.io
+      ipSecurityRestrictions: null
+      stickySessions: null
+      targetPort: 8080
+      traffic:
+      - latestRevision: true
+        weight: 100
+      transport: Auto
+    maxInactiveRevisions: null
+    registries:
+    - identity: ''
+      passwordSecretRef: mcpacrpenguinv2azurecrio-mcpacrpenguinv2
+      server: mcpacrpenguinv2.azurecr.io
+      username: mcpacrpenguinv2
+    runtime: null
+    secrets:
+    - name: mcpacrpenguinv2azurecrio-mcpacrpenguinv2
+    service: null
+  customDomainVerificationId: BA44C73E397F4FCCD6A151A4EA8EAE8F6A5BA0C0B7CB2B15A93346CA568FF1F7
+  delegatedIdentities: []
+  environmentId: /subscriptions/3db3ce66-50b6-4d11-91ef-5950cf4039ed/resourceGroups/mcp-rg-eastus/providers/Microsoft.App/managedEnvironments/gemma4-vllm-env
+  eventStreamEndpoint: https://eastus.azurecontainerapps.dev/subscriptions/3db3ce66-50b6-4d11-91ef-5950cf4039ed/resourceGroups/mcp-rg-eastus/containerApps/gemma4-vllm-gpu/eventstream
+  latestReadyRevisionName: gemma4-vllm-gpu--0000006
+  latestRevisionFqdn: gemma4-vllm-gpu--0000009.niceriver-0b57da37.eastus.azurecontainerapps.io
+  latestRevisionName: gemma4-vllm-gpu--0000009
+  managedEnvironmentId: /subscriptions/3db3ce66-50b6-4d11-91ef-5950cf4039ed/resourceGroups/mcp-rg-eastus/providers/Microsoft.App/managedEnvironments/gemma4-vllm-env
+  outboundIpAddresses:
+  - 20.121.163.85
+  provisioningState: Succeeded
+  runningStatus: Running
+  template:
+    containers:
+    - env:
+      - name: HF_TOKEN
+        value: YOUR_HF_TOKEN
+      image: mcpacrpenguinv2.azurecr.io/gemma4-vllm-image:latest
+      name: gemma4-vllm-gpu
+      resources:
+        cpu: 8.0
+        ephemeralStorage: ''
+        memory: 56Gi
+      probes:
+      - type: Startup
+        httpGet:
+          path: /v1/models
+          port: 8080
+        initialDelaySeconds: 15
+        periodSeconds: 10
+        failureThreshold: 60
+      - type: Liveness
+        httpGet:
+          path: /v1/models
+          port: 8080
+        initialDelaySeconds: 5
+        periodSeconds: 10
+        failureThreshold: 3
+      - type: Readiness
+        httpGet:
+          path: /v1/models
+          port: 8080
+        initialDelaySeconds: 5
+        periodSeconds: 10
+        failureThreshold: 3
+    initContainers: null
+    revisionSuffix: ''
+    scale:
+      cooldownPeriod: 300
+      maxReplicas: 1
+      minReplicas: 1
+      pollingInterval: 30
+      rules: null
+    serviceBinds: null
+    terminationGracePeriodSeconds: null
+    volumes: null
+  workloadProfileName: gpu-profile
+resourceGroup: mcp-rg-eastus
+systemData:
+  createdAt: '2026-06-18T14:49:09.8913674'
+  createdBy: xbill@glitnir.com
+  createdByType: User
+  lastModifiedAt: '2026-06-18T15:50:58.6198025'
+  lastModifiedBy: xbill@glitnir.com
+  lastModifiedByType: User
+type: Microsoft.App/containerApps

@@ -9,6 +9,9 @@ import sys
 import time
 from typing import Optional
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import httpx
 from google.cloud import aiplatform, secretmanager, storage
 from google.cloud import logging as cloud_logging
@@ -21,6 +24,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("vllm-devops-agent")
 logger.info("Initializing DevOps Agent MCP Server...")
+
 
 # Initialize FastMCP server
 mcp = FastMCP("Self-Hosted vLLM DevOps Agent")
@@ -51,6 +55,25 @@ async def get_secret(secret_id: str = HF_SECRET_ID) -> Optional[str]:
     val = os.getenv("HF_TOKEN") or os.getenv("HF_API_KEY")
     if val:
         return val
+
+    # 1b. Check local .env file or app.yaml
+    for filename in (".env", "app.yaml"):
+        if os.path.exists(filename):
+            try:
+                with open(filename, "r") as f:
+                    content = f.read()
+                # Simple parser for environment file or yaml
+                for line in content.splitlines():
+                    if "=" in line:
+                        k, v = line.split("=", 1)
+                        if k.strip() in ("HF_TOKEN", "HF_API_KEY"):
+                            return v.strip().strip('"').strip("'")
+                    elif ":" in line:
+                        k, v = line.split(":", 1)
+                        if k.strip() in ("HF_TOKEN", "value") and "hf_" in v:
+                            return v.strip().strip('"').strip("'")
+            except Exception:
+                pass
 
     # 2. Check Azure Key Vault
     try:
@@ -706,10 +729,16 @@ async def deploy_vllm(
 
         # 2. Create ACA Environment
         cmd_env = [
-            "az", "containerapp", "env", "create",
-            "--name", env_name,
-            "--resource-group", rg_name,
-            "--location", AZURE_LOCATION
+            "az",
+            "containerapp",
+            "env",
+            "create",
+            "--name",
+            env_name,
+            "--resource-group",
+            rg_name,
+            "--location",
+            AZURE_LOCATION,
         ]
         proc_env = await asyncio.to_thread(subprocess.run, cmd_env, capture_output=True, text=True, timeout=300)
         if proc_env.returncode != 0:
@@ -717,11 +746,19 @@ async def deploy_vllm(
 
         # 3. Add GPU Workload Profile
         cmd_wp = [
-            "az", "containerapp", "env", "workload-profile", "add",
-            "--name", env_name,
-            "--resource-group", rg_name,
-            "--workload-profile-name", "gpu-profile",
-            "--workload-profile-type", "Consumption-GPU-NC8as-T4"
+            "az",
+            "containerapp",
+            "env",
+            "workload-profile",
+            "add",
+            "--name",
+            env_name,
+            "--resource-group",
+            rg_name,
+            "--workload-profile-name",
+            "gpu-profile",
+            "--workload-profile-type",
+            "Consumption-GPU-NC8as-T4",
         ]
         proc_wp = await asyncio.to_thread(subprocess.run, cmd_wp, capture_output=True, text=True, timeout=120)
         if proc_wp.returncode != 0:
@@ -731,36 +768,46 @@ async def deploy_vllm(
         vllm_args = (
             f"--model {model_path} "
             f"--quantization compressed-tensors "
-            f"--dtype bfloat16 "
+            f"--dtype float16 "
             f"--max-model-len 32768 "
-            f"--disable-chunked-mm-input "
             f"--gpu-memory-utilization 0.95 "
-            f"--kv-cache-dtype fp8 "
+            f"--kv-cache-dtype auto "
             f"--tensor-parallel-size 1 "
             f"--max-num-seqs 8 "
             f"--enable-chunked-prefill "
             f"--max-num-batched-tokens 4096 "
-            f"--enable-auto-tool-choice "
-            f"--tool-call-parser gemma4 "
-            f"--reasoning-parser gemma4 "
-            f"--async-scheduling "
-            f"--limit-mm-per-prompt '{{}}' "
             f"--host 0.0.0.0 "
             f"--port 8080"
         )
+        import shlex
+        import json
+        vllm_args_json = json.dumps(shlex.split(vllm_args))
         cmd_app = [
-            "az", "containerapp", "create",
-            "--name", app_name,
-            "--resource-group", rg_name,
-            "--environment", env_name,
-            "--workload-profile-name", "gpu-profile",
-            "--image", "vllm/vllm-openai:nightly",
-            "--cpu", "8.0",
-            "--memory", "56.0Gi",
-            "--ingress", "external",
-            "--target-port", "8080",
-            "--env-vars", f"HF_TOKEN={hf_token}",
-            "--args", vllm_args
+            "az",
+            "containerapp",
+            "create",
+            "--name",
+            app_name,
+            "--resource-group",
+            rg_name,
+            "--environment",
+            env_name,
+            "--workload-profile-name",
+            "gpu-profile",
+            "--image",
+            "vllm/vllm-openai:v0.7.3",
+            "--cpu",
+            "8.0",
+            "--memory",
+            "56.0Gi",
+            "--ingress",
+            "external",
+            "--target-port",
+            "8080",
+            "--env-vars",
+            f"VLLM_USE_V1=0 HF_TOKEN={hf_token}",
+            "--args",
+            vllm_args_json,
         ]
         proc_app = await asyncio.to_thread(subprocess.run, cmd_app, capture_output=True, text=True, timeout=600)
         if proc_app.returncode != 0:
@@ -768,11 +815,17 @@ async def deploy_vllm(
 
         # 5. Get FQDN
         cmd_ip = [
-            "az", "containerapp", "show",
-            "--resource-group", rg_name,
-            "--name", app_name,
-            "--query", "properties.configuration.ingress.fqdn",
-            "-o", "tsv"
+            "az",
+            "containerapp",
+            "show",
+            "--resource-group",
+            rg_name,
+            "--name",
+            app_name,
+            "--query",
+            "properties.configuration.ingress.fqdn",
+            "-o",
+            "tsv",
         ]
         proc_ip = await asyncio.to_thread(subprocess.run, cmd_ip, capture_output=True, text=True, timeout=30)
         fqdn = proc_ip.stdout.strip() if proc_ip.returncode == 0 else "None"
@@ -818,7 +871,20 @@ async def start_azure_vm(
         cmd_show = ["az", "containerapp", "show", "-g", rg_name, "-n", app_name, "-o", "json"]
         proc_show = await asyncio.to_thread(subprocess.run, cmd_show, capture_output=True, text=True, timeout=15)
         if proc_show.returncode == 0:
-            cmd_scale = ["az", "containerapp", "replica", "scale", "-g", rg_name, "-n", app_name, "--min-replicas", "1", "--max-replicas", "1"]
+            cmd_scale = [
+                "az",
+                "containerapp",
+                "replica",
+                "scale",
+                "-g",
+                rg_name,
+                "-n",
+                app_name,
+                "--min-replicas",
+                "1",
+                "--max-replicas",
+                "1",
+            ]
             await asyncio.to_thread(subprocess.run, cmd_scale, capture_output=True, text=True, timeout=30)
             return f"🚀 Successfully requested scaling up Azure Container App: {app_name} in group {rg_name}."
     except Exception as e:
@@ -914,7 +980,20 @@ def stop_azure_vm(
         cmd_show = ["az", "containerapp", "show", "-g", rg_name, "-n", app_name, "-o", "json"]
         proc_show = subprocess.run(cmd_show, capture_output=True, text=True, timeout=15)
         if proc_show.returncode == 0:
-            cmd_scale = ["az", "containerapp", "replica", "scale", "-g", rg_name, "-n", app_name, "--min-replicas", "0", "--max-replicas", "0"]
+            cmd_scale = [
+                "az",
+                "containerapp",
+                "replica",
+                "scale",
+                "-g",
+                rg_name,
+                "-n",
+                app_name,
+                "--min-replicas",
+                "0",
+                "--max-replicas",
+                "0",
+            ]
             subprocess.run(cmd_scale, capture_output=True, text=True, timeout=30)
             return f"🛑 Successfully scaled down Azure Container App '{app_name}' to 0 replicas."
     except Exception as e:
@@ -1037,6 +1116,26 @@ async def check_vllm(
     """
     rg_name = f"{service_name}-rg"
     app_name = f"{service_name}-app"
+
+    # Try to auto-discover resource group and app name matching service_name
+    try:
+        cmd_list = [
+            "az",
+            "containerapp",
+            "list",
+            "--query",
+            f"[?contains(name, '{service_name}') || name=='{service_name}-app' || name=='{service_name}'].{{name:name, rg:resourceGroup}}",
+            "-o",
+            "json"
+        ]
+        proc_list = await asyncio.to_thread(subprocess.run, cmd_list, capture_output=True, text=True, timeout=15)
+        if proc_list.returncode == 0:
+            res_list = json.loads(proc_list.stdout.strip())
+            if res_list:
+                app_name = res_list[0]["name"]
+                rg_name = res_list[0]["rg"]
+    except Exception as e:
+        logger.warning(f"Error during check_vllm containerapp search: {e}")
 
     # Check Container App first
     try:
@@ -1189,19 +1288,33 @@ def update_vllm_scaling(instance_type: str, service_name: str = DEFAULT_SERVICE_
                 # Scale replica count
                 replicas = int(instance_type)
                 cmd_scale = [
-                    "az", "containerapp", "replica", "scale",
-                    "-g", rg_name, "-n", app_name,
-                    "--min-replicas", str(replicas),
-                    "--max-replicas", str(replicas)
+                    "az",
+                    "containerapp",
+                    "replica",
+                    "scale",
+                    "-g",
+                    rg_name,
+                    "-n",
+                    app_name,
+                    "--min-replicas",
+                    str(replicas),
+                    "--max-replicas",
+                    str(replicas),
                 ]
                 subprocess.run(cmd_scale, capture_output=True, text=True, timeout=30)
                 return f"⚡ Successfully requested scale of Azure Container App replicas to min/max `{replicas}`."
             else:
                 # Update workload profile or template config
                 cmd_update = [
-                    "az", "containerapp", "update",
-                    "-g", rg_name, "-n", app_name,
-                    "--workload-profile-name", instance_type
+                    "az",
+                    "containerapp",
+                    "update",
+                    "-g",
+                    rg_name,
+                    "-n",
+                    app_name,
+                    "--workload-profile-name",
+                    instance_type,
                 ]
                 subprocess.run(cmd_update, capture_output=True, text=True, timeout=60)
                 return f"⚡ Successfully requested update of Azure Container App workload profile to `{instance_type}`."
@@ -1720,24 +1833,45 @@ async def get_system_status(service_name: str = DEFAULT_SERVICE_NAME) -> str:
     except Exception as e:
         logger.warning(f"Health check failed: {e}")
 
-    # Check Azure VM
+    # Check Azure Container App
     vm_status = "🔴 Unknown"
     is_azure = True
     try:
-        rg_name = f"{service_name}-rg"
-        vm_name = f"{service_name}-vm"
-        cmd = ["az", "vm", "show", "-g", rg_name, "-n", vm_name, "-d", "--query", "powerState", "-o", "tsv"]
-        process = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-        if process.returncode == 0 and process.stdout.strip():
-            state = process.stdout.strip()
-            if "running" in state.lower():
-                vm_status = f"🟢 Running ({vm_name})"
-            else:
-                vm_status = f"🔴 {state.capitalize()} ({vm_name})"
-        else:
-            vm_status = "🔴 VM Not Found / Offline"
+        cmd_list = [
+            "az",
+            "containerapp",
+            "list",
+            "--query",
+            f"[?contains(name, '{service_name}') || name=='{service_name}-app' || name=='{service_name}'].{{name:name, rg:resourceGroup, state:properties.provisioningState}}",
+            "-o",
+            "json"
+        ]
+        proc_list = subprocess.run(cmd_list, capture_output=True, text=True, timeout=10)
+        if proc_list.returncode == 0:
+            res_list = json.loads(proc_list.stdout.strip())
+            if res_list:
+                app_info = res_list[0]
+                vm_status = f"🟢 ACA {app_info['state']} ({app_info['name']})"
     except Exception as e:
-        vm_status = f"🔴 Azure Error: {str(e)}"
+        logger.warning(f"Error checking ACA status in get_system_status: {e}")
+
+    # Check Azure VM
+    if "🟢" not in vm_status:
+        try:
+            rg_name = f"{service_name}-rg"
+            vm_name = f"{service_name}-vm"
+            cmd = ["az", "vm", "show", "-g", rg_name, "-n", vm_name, "-d", "--query", "powerState", "-o", "tsv"]
+            process = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            if process.returncode == 0 and process.stdout.strip():
+                state = process.stdout.strip()
+                if "running" in state.lower():
+                    vm_status = f"🟢 Running ({vm_name})"
+                else:
+                    vm_status = f"🔴 {state.capitalize()} ({vm_name})"
+            else:
+                vm_status = "🔴 VM Not Found / Offline"
+        except Exception as e:
+            vm_status = f"🔴 Azure Error: {str(e)}"
 
     # If Azure failed or not found, try GCP fallback
     if "Error" in vm_status or "Not Found" in vm_status:
