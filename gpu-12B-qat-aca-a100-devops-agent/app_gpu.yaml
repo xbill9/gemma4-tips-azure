@@ -1,0 +1,101 @@
+id: /subscriptions/3db3ce66-50b6-4d11-91ef-5950cf4039ed/resourceGroups/gpu-12b-qat-l4-devops-agent-rg/providers/Microsoft.App/containerapps/gpu-12b-qat-l4-devops-agent-app
+identity:
+  type: None
+location: East US
+name: gpu-12b-qat-l4-devops-agent-app
+properties:
+  configuration:
+    activeRevisionsMode: Single
+    dapr: null
+    identitySettings: []
+    ingress:
+      additionalPortMappings: null
+      allowInsecure: false
+      clientCertificateMode: null
+      corsPolicy: null
+      customDomains: null
+      exposedPort: 0
+      external: true
+      fqdn: gpu-12b-qat-l4-devops-agent-app.purplesmoke-a1c60b91.eastus.azurecontainerapps.io
+      ipSecurityRestrictions: null
+      stickySessions: null
+      targetPort: 8080
+      traffic:
+      - latestRevision: true
+        weight: 100
+      transport: Auto
+    maxInactiveRevisions: null
+    registries: null
+    runtime: null
+    secrets: null
+    service: null
+  customDomainVerificationId: BA44C73E397F4FCCD6A151A4EA8EAE8F6A5BA0C0B7CB2B15A93346CA568FF1F7
+  delegatedIdentities: []
+  environmentId: /subscriptions/3db3ce66-50b6-4d11-91ef-5950cf4039ed/resourceGroups/gpu-12b-qat-l4-devops-agent-rg/providers/Microsoft.App/managedEnvironments/gpu-12b-qat-l4-devops-agent-env
+  eventStreamEndpoint: https://eastus.azurecontainerapps.dev/subscriptions/3db3ce66-50b6-4d11-91ef-5950cf4039ed/resourceGroups/gpu-12b-qat-l4-devops-agent-rg/containerApps/gpu-12b-qat-l4-devops-agent-app/eventstream
+  latestReadyRevisionName: gpu-12b-qat-l4-devops-agent-app--h449fqb
+  latestRevisionFqdn: gpu-12b-qat-l4-devops-agent-app--0000001.purplesmoke-a1c60b91.eastus.azurecontainerapps.io
+  latestRevisionName: gpu-12b-qat-l4-devops-agent-app--0000001
+  managedEnvironmentId: /subscriptions/3db3ce66-50b6-4d11-91ef-5950cf4039ed/resourceGroups/gpu-12b-qat-l4-devops-agent-rg/providers/Microsoft.App/managedEnvironments/gpu-12b-qat-l4-devops-agent-env
+  outboundIpAddresses:
+  - 172.212.21.141
+  provisioningState: Succeeded
+  runningStatus: Running
+  template:
+    containers:
+    - args:
+      - --model
+      - google/gemma-4-12B-it-qat-w4a16-ct
+      - --quantization
+      - compressed-tensors
+      - --dtype
+      - float16
+      - --max-model-len
+      - "32768"
+      - --gpu-memory-utilization
+      - "0.95"
+      - --kv-cache-dtype
+      - auto
+      - --tensor-parallel-size
+      - "1"
+      - --max-num-seqs
+      - "8"
+      - --enable-chunked-prefill
+      - --max-num-batched-tokens
+      - "4096"
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      env:
+      - name: VLLM_USE_V1
+        value: "0"
+      - name: HF_TOKEN
+        value: YOUR_HF_TOKEN
+      image: vllm/vllm-openai:v0.7.3
+      name: gpu-12b-qat-l4-devops-agent-app
+      resources:
+        cpu: 24.0
+        ephemeralStorage: ''
+        memory: 220Gi
+    initContainers: null
+    revisionSuffix: ''
+    scale:
+      cooldownPeriod: 300
+      maxReplicas: 1
+      minReplicas: 1
+      pollingInterval: 30
+      rules: null
+    serviceBinds: null
+    terminationGracePeriodSeconds: null
+    volumes: null
+  workloadProfileName: gpu-profile
+resourceGroup: gpu-12b-qat-l4-devops-agent-rg
+systemData:
+  createdAt: '2026-06-17T19:02:18.1122237'
+  createdBy: xbill@glitnir.com
+  createdByType: User
+  lastModifiedAt: '2026-06-18T19:00:43.4125583'
+  lastModifiedBy: xbill@glitnir.com
+  lastModifiedByType: User
+type: Microsoft.App/containerApps

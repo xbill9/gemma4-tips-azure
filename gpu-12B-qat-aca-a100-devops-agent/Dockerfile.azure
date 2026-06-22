@@ -1,0 +1,31 @@
+# Use the official nightly vLLM image as the base image
+FROM vllm/vllm-openai:nightly
+
+# Expose port 8080 for OpenAI API compatibility
+EXPOSE 8080
+
+# Patch Triton unified attention kernel to force num_stages=1, preventing OutOfResources: shared memory on Tesla T4 GPUs
+RUN python3 -c "p = '/usr/local/lib/python3.12/dist-packages/vllm/v1/attention/ops/triton_unified_attention.py'; c = open(p).read().replace('launch_num_stages: int | None = None', 'launch_num_stages: int | None = 1').replace('Select tile size with Gemma3-specific optimization.\"\"\"', 'Select tile size with Gemma3-specific optimization.\"\"\"\n    return 16'); open(p, 'w').write(c)"
+
+# Run vLLM with the optimized Gemma 4 parameters
+ENTRYPOINT ["python3", "-m", "vllm.entrypoints.openai.api_server"]
+CMD [ \
+    "--model", "google/gemma-4-12B-it-qat-w4a16-ct", \
+    "--quantization", "compressed-tensors", \
+    "--dtype", "bfloat16", \
+    "--max-model-len", "32768", \
+    "--disable-chunked-mm-input", \
+    "--gpu-memory-utilization", "0.95", \
+    "--kv-cache-dtype", "auto", \
+    "--tensor-parallel-size", "1", \
+    "--max-num-seqs", "4", \
+    "--enable-chunked-prefill", \
+    "--max-num-batched-tokens", "4096", \
+    "--enable-auto-tool-choice", \
+    "--tool-call-parser", "gemma4", \
+    "--reasoning-parser", "gemma4", \
+    "--async-scheduling", \
+    "--limit-mm-per-prompt", "{}", \
+    "--host", "0.0.0.0", \
+    "--port", "8080" \
+]

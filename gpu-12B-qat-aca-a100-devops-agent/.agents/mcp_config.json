@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "gpu-devops-agent": {
+      "command": "python3",
+      "args": [
+        "/home/xbill/gemma4-tips-azure/gpu-12B-qat-aca-a100-devops-agent/server.py"
+      ],
+      "env": {
+        "AZURE_LOCATION": "eastus",
+        "MODEL_NAME": "google/gemma-4-12B-it-qat-w4a16-ct"
+      }
+    }
+  }
+}
